@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Training Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+        .upload-area.dragover {
+            background: rgba(102, 126, 234, 0.2);
+            border-color: #5a6fd8;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 2px;
+            display: inline-block;
+        }
+        .status.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.training {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.pending {
+            background: #e2e3e5;
+            color: #6c757d;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .alert {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .alert.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .file-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 ML Training Dashboard</h1>
+            <p>Upload datasets, train models, and make predictions</p>
+            <div id="api-status">API Status: <span id="status-indicator">⚪ Checking...</span></div>
+            <div id="debug-toggle" style="margin-top: 10px;">
+                <label>
+                    <input type="checkbox" id="show-debug"> Show Debug Information
+                </label>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Upload Dataset -->
+            <div class="card">
+                <h2>📁 Upload Dataset</h2>
+                
+                <div class="upload-area" id="upload-area">
+                    <p>📄 Drag & drop a CSV file here or click to browse</p>
+                    <p style="font-size: 12px; color: #666;">Supported: .csv files only</p>
+                    <input type="file" id="file-input" accept=".csv" style="display: none;">
+                </div>
+                
+                <div id="file-info" class="file-info" style="display: none;"></div>
+                
+                <div class="form-group">
+                    <label>Dataset Name</label>
+                    <input type="text" id="dataset-name" placeholder="Enter dataset name (optional)">
+                </div>
+                
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="dataset-description" placeholder="Enter description (optional)" rows="2"></textarea>
+                </div>
+                
+                <button class="btn" id="upload-btn" onclick="uploadDataset()">Upload Dataset</button>
+                
+                <div id="upload-status"></div>
+                <div id="upload-debug" class="debug-info" style="display: none;"></div>
+            </div>
+
+            <!-- Train Model -->
+            <div class="card">
+                <h2>🤖 Train Model</h2>
+                
+                <div class="form-group">
+                    <label>Select Dataset</label>
+                    <select id="select-dataset">
+                        <option value="">Choose dataset...</option>
+                    </select>
+                </div>
+                
+                <div id="dataset-info" class="alert info" style="display: none;"></div>
+                
+                <div class="form-group">
+                    <label>Model Name</label>
+                    <input type="text" id="model-name" placeholder="Enter model name">
+                </div>
+                
+                <div class="form-group">
+                    <label>Algorithm</label>
+                    <select id="algorithm">
+                        <option value="random_forest">Random Forest</option>
+                        <option value="logistic_regression">Logistic Regression</option>
+                        <option value="linear_regression">Linear Regression</option>
+                        <option value="svm">SVM</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Model Type</label>
+                    <select id="model-type">
+                        <option value="classification">Classification</option>
+                        <option value="regression">Regression</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Target Column</label>
+                    <select id="target-column">
+                        <option value="">Select target column...</option>
+                    </select>
+                </div>
+                
+                <div id="feature-columns-info" class="alert info" style="display: none;"></div>
+                
+                <button class="btn" id="train-btn" onclick="startTraining()">Start Training</button>
+                
+                <div id="training-status"></div>
+                <div id="training-debug" class="debug-info" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Training Jobs -->
+        <div class="card">
+            <h2>⏱️ Training Jobs</h2>
+            <button class="btn" onclick="loadData()" style="float: right;">🔄 Refresh</button>
+            <div id="job-list">
+                <div class="loading" id="jobs-loading">
+                    <div class="spinner"></div>
+                    <p>Loading training jobs...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trained Models -->
+        <div class="card">
+            <h2>🎯 Trained Models</h2>
+            <div id="model-list">
+                <div class="loading" id="models-loading">
+                    <div class="spinner"></div>
+                    <p>Loading models...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Make Predictions -->
+        <div class="card">
+            <h2>🔮 Make Predictions</h2>
+            <div class="form-group">
+                <label>Select Model</label>
+                <select id="select-model">
+                    <option value="">Choose model...</option>
+                </select>
+            </div>
+            <div id="model-info" class="alert info" style="display: none;"></div>
+            <div id="prediction-inputs"></div>
+            <button class="btn" onclick="makePrediction()">Predict</button>
+            <div id="prediction-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let datasets = [];
+        let models = [];
+        let jobs = [];
+        let selectedFile = null;
+        let debugMode = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            checkAPI();
+            loadData();
+            
+            // Refresh data every 10 seconds (increased from 5 to reduce interference)
+            setInterval(() => {
+                // Only refresh if user is not actively using form inputs
+                if (!document.activeElement || 
+                    !['input', 'select', 'textarea'].includes(document.activeElement.tagName.toLowerCase())) {
+                    loadData();
+                }
+            }, 10000);
+        });
+
+        function setupEventListeners() {
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-input');
+            const debugToggle = document.getElementById('show-debug');
+
+            // File upload events
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Dataset selection change
+            document.getElementById('select-dataset').addEventListener('change', loadDatasetInfo);
+            
+            // Target column selection change
+            document.getElementById('target-column').addEventListener('change', function() {
+                const datasetId = document.getElementById('select-dataset').value;
+                const targetColumn = this.value;
+                
+                if (datasetId && targetColumn) {
+                    const dataset = datasets.find(d => d.id === datasetId);
+                    if (dataset) {
+                        updateFeatureInfo(dataset.columns, targetColumn);
+                    }
+                } else {
+                    document.getElementById('feature-columns-info').style.display = 'none';
+                }
+            });
+            
+            // Model selection change
+            document.getElementById('select-model').addEventListener('change', loadModelInfo);
+
+            // Debug toggle
+            debugToggle.addEventListener('change', function() {
+                debugMode = this.checked;
+                toggleDebugInfo();
+            });
+        }
+
+        function toggleDebugInfo() {
+            const debugElements = document.querySelectorAll('.debug-info');
+            debugElements.forEach(el => {
+                el.style.display = debugMode ? 'block' : 'none';
+            });
+        }
+
+        function logDebug(elementId, message) {
+            if (debugMode) {
+                const debugEl = document.getElementById(elementId);
+                if (debugEl) {
+                    const timestamp = new Date().toLocaleTimeString();
+                    debugEl.innerHTML += `[${timestamp}] ${message}\n`;
+                    debugEl.scrollTop = debugEl.scrollHeight;
+                }
+            }
+            console.log(message);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('upload-area').classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('upload-area').classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('upload-area').classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('file-input').files = files;
+                handleFileSelect({ target: { files: files } });
+            }
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            selectedFile = file;
+            
+            if (file) {
+                const fileInfo = document.getElementById('file-info');
+                fileInfo.style.display = 'block';
+                fileInfo.innerHTML = `
+                    <strong>File Selected:</strong><br>
+                    Name: ${file.name}<br>
+                    Size: ${(file.size / 1024).toFixed(2)} KB<br>
+                    Type: ${file.type}<br>
+                    Last Modified: ${new Date(file.lastModified).toLocaleString()}
+                `;
+                
+                // Auto-fill dataset name if empty
+                const nameInput = document.getElementById('dataset-name');
+                if (!nameInput.value) {
+                    nameInput.value = file.name.replace('.csv', '');
+                }
+                
+                logDebug('upload-debug', `File selected: ${file.name} (${file.size} bytes)`);
+            }
+        }
+
+        async function checkAPI() {
+            try {
+                logDebug('upload-debug', 'Checking API health...');
+                const response = await fetch(`${API_BASE}/health`);
+                
+                if (response.ok) {
+                    document.getElementById('status-indicator').innerHTML = '🟢 Connected';
+                    logDebug('upload-debug', 'API health check successful');
+                } else {
+                    throw new Error(`API returned status ${response.status}`);
+                }
+            } catch (error) {
+                document.getElementById('status-indicator').innerHTML = '🔴 Not Connected';
+                logDebug('upload-debug', `API health check failed: ${error.message}`);
+                
+                showAlert('upload-status', 
+                    'Cannot connect to API. Make sure FastAPI server is running on port 8000.', 
+                    'error');
+            }
+        }
+
+        async function loadData() {
+            try {
+                logDebug('upload-debug', 'Loading dashboard data...');
+                
+                // Load datasets
+                const datasetsResponse = await fetch(`${API_BASE}/api/datasets`);
+                if (datasetsResponse.ok) {
+                    datasets = await datasetsResponse.json();
+                    updateDatasetSelect();
+                    logDebug('upload-debug', `Loaded ${datasets.length} datasets`);
+                } else {
+                    logDebug('upload-debug', `Failed to load datasets: ${datasetsResponse.status}`);
+                }
+
+                // Load models
+                const modelsResponse = await fetch(`${API_BASE}/api/models`);
+                if (modelsResponse.ok) {
+                    models = await modelsResponse.json();
+                    updateModelsList();
+                    updateModelSelect();
+                    logDebug('upload-debug', `Loaded ${models.length} models`);
+                } else {
+                    logDebug('upload-debug', `Failed to load models: ${modelsResponse.status}`);
+                }
+
+                // Load jobs
+                const jobsResponse = await fetch(`${API_BASE}/api/training/jobs`);
+                if (jobsResponse.ok) {
+                    jobs = await jobsResponse.json();
+                    updateJobsList();
+                    logDebug('upload-debug', `Loaded ${jobs.length} training jobs`);
+                } else {
+                    logDebug('upload-debug', `Failed to load jobs: ${jobsResponse.status}`);
+                }
+
+            } catch (error) {
+                logDebug('upload-debug', `Error loading data: ${error.message}`);
+            }
+        }
+
+        function updateDatasetSelect() {
+            const select = document.getElementById('select-dataset');
+            const currentValue = select.value; // Preserve current selection
+            
+            select.innerHTML = '<option value="">Choose dataset...</option>';
+            
+            datasets.forEach(dataset => {
+                const option = document.createElement('option');
+                option.value = dataset.id;
+                option.textContent = `${dataset.name} (${dataset.rows || 'unknown'} rows)`;
+                select.appendChild(option);
+            });
+            
+            // Restore the selection if it still exists
+            if (currentValue && datasets.find(d => d.id === currentValue)) {
+                select.value = currentValue;
+            }
+        }
+
+        function updateModelSelect() {
+            const select = document.getElementById('select-model');
+            const currentValue = select.value; // Preserve current selection
+            
+            select.innerHTML = '<option value="">Choose model...</option>';
+            
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = `${model.name} (${model.algorithm})`;
+                select.appendChild(option);
+            });
+            
+            // Restore the selection if it still exists
+            if (currentValue && models.find(m => m.id === currentValue)) {
+                select.value = currentValue;
+            }
+        }
+
+        async function loadDatasetInfo() {
+            const datasetId = document.getElementById('select-dataset').value;
+            const datasetInfo = document.getElementById('dataset-info');
+            const targetSelect = document.getElementById('target-column');
+            const featureInfo = document.getElementById('feature-columns-info');
+            
+            if (!datasetId) {
+                datasetInfo.style.display = 'none';
+                targetSelect.innerHTML = '<option value="">Select target column...</option>';
+                featureInfo.style.display = 'none';
+                return;
+            }
+
+            // Preserve target column selection
+            const currentTargetValue = targetSelect.value;
+
+            try {
+                logDebug('training-debug', `Loading dataset info for: ${datasetId}`);
+                const response = await fetch(`${API_BASE}/api/datasets/${datasetId}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const dataset = data.dataset;
+                    
+                    // Show dataset info
+                    datasetInfo.style.display = 'block';
+                    datasetInfo.innerHTML = `
+                        <strong>Dataset Info:</strong><br>
+                        Rows: ${dataset.rows}, Columns: ${dataset.columns.length}<br>
+                        Columns: ${dataset.columns.join(', ')}
+                    `;
+                    
+                    // Update target column options
+                    targetSelect.innerHTML = '<option value="">Select target column...</option>';
+                    dataset.columns.forEach(column => {
+                        const option = document.createElement('option');
+                        option.value = column;
+                        option.textContent = column;
+                        targetSelect.appendChild(option);
+                    });
+                    
+                    // Restore target selection if it still exists
+                    if (currentTargetValue && dataset.columns.includes(currentTargetValue)) {
+                        targetSelect.value = currentTargetValue;
+                        updateFeatureInfo(dataset.columns, currentTargetValue);
+                    }
+                    
+                    logDebug('training-debug', `Dataset loaded: ${dataset.columns.length} columns`);
+                } else {
+                    logDebug('training-debug', `Failed to load dataset: ${response.status}`);
+                    showAlert('training-status', `Failed to load dataset info: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                logDebug('training-debug', `Error loading dataset: ${error.message}`);
+                showAlert('training-status', `Error loading dataset: ${error.message}`, 'error');
+            }
+        }
+
+        function updateFeatureInfo(columns, targetColumn) {
+            const featureInfo = document.getElementById('feature-columns-info');
+            if (targetColumn) {
+                const featureColumns = columns.filter(col => col !== targetColumn);
+                featureInfo.style.display = 'block';
+                featureInfo.innerHTML = `
+                    <strong>Features (${featureColumns.length}):</strong> ${featureColumns.join(', ')}<br>
+                    <strong>Target:</strong> ${targetColumn}
+                `;
+            } else {
+                featureInfo.style.display = 'none';
+            }
+        }
+
+        async function loadModelInfo() {
+            const modelId = document.getElementById('select-model').value;
+            const modelInfo = document.getElementById('model-info');
+            const inputsDiv = document.getElementById('prediction-inputs');
+            
+            if (!modelId) {
+                modelInfo.style.display = 'none';
+                inputsDiv.innerHTML = '';
+                return;
+            }
+
+            const model = models.find(m => m.id === modelId);
+            if (model) {
+                modelInfo.style.display = 'block';
+                modelInfo.innerHTML = `
+                    <strong>Model Info:</strong><br>
+                    Algorithm: ${model.algorithm}<br>
+                    Type: ${model.model_type}<br>
+                    Features: ${model.feature_columns.join(', ')}
+                `;
+                
+                // Create input fields for features
+                inputsDiv.innerHTML = '<h3>Enter feature values:</h3>';
+                model.feature_columns.forEach(column => {
+                    const div = document.createElement('div');
+                    div.className = 'form-group';
+                    div.innerHTML = `
+                        <label>${column}</label>
+                        <input type="number" id="input-${column}" placeholder="Enter ${column}" step="any">
+                    `;
+                    inputsDiv.appendChild(div);
+                });
+            }
+        }
+
+        async function uploadDataset() {
+            const fileInput = document.getElementById('file-input');
+            const name = document.getElementById('dataset-name').value;
+            const description = document.getElementById('dataset-description').value;
+            const statusDiv = document.getElementById('upload-status');
+            const uploadBtn = document.getElementById('upload-btn');
+
+            if (!selectedFile) {
+                showAlert(statusDiv, 'Please select a CSV file first', 'error');
+                logDebug('upload-debug', 'Upload attempted without file selection');
+                return;
+            }
+
+            // Validate file type
+            if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
+                showAlert(statusDiv, 'Please select a valid CSV file', 'error');
+                logDebug('upload-debug', `Invalid file type: ${selectedFile.name}`);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('name', name || selectedFile.name.replace('.csv', ''));
+            formData.append('description', description || '');
+
+            try {
+                uploadBtn.disabled = true;
+                uploadBtn.textContent = 'Uploading...';
+                
+                logDebug('upload-debug', `Starting upload: ${selectedFile.name}`);
+                logDebug('upload-debug', `Form data: name="${name}", description="${description}"`);
+                
+                showAlert(statusDiv, 'Uploading dataset...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/datasets/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                logDebug('upload-debug', `Upload response status: ${response.status}`);
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showAlert(statusDiv, `Dataset uploaded successfully! ID: ${result.dataset_id}`, 'success');
+                    
+                    logDebug('upload-debug', `Upload successful: ${JSON.stringify(result)}`);
+                    
+                    // Reset form
+                    fileInput.value = '';
+                    document.getElementById('dataset-name').value = '';
+                    document.getElementById('dataset-description').value = '';
+                    document.getElementById('file-info').style.display = 'none';
+                    selectedFile = null;
+                    
+                    // Reload data
+                    loadData();
+                } else {
+                    const errorText = await response.text();
+                    showAlert(statusDiv, `Upload failed: ${errorText}`, 'error');
+                    logDebug('upload-debug', `Upload failed: ${response.status} - ${errorText}`);
+                }
+            } catch (error) {
+                showAlert(statusDiv, `Upload failed: ${error.message}`, 'error');
+                logDebug('upload-debug', `Upload error: ${error.message}`);
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload Dataset';
+            }
+        }
+
+        async function startTraining() {
+            const datasetId = document.getElementById('select-dataset').value;
+            const modelName = document.getElementById('model-name').value;
+            const algorithm = document.getElementById('algorithm').value;
+            const modelType = document.getElementById('model-type').value;
+            const targetColumn = document.getElementById('target-column').value;
+            const statusDiv = document.getElementById('training-status');
+            const trainBtn = document.getElementById('train-btn');
+
+            // Validation
+            if (!datasetId || !modelName || !targetColumn) {
+                showAlert(statusDiv, 'Please fill in all required fields', 'error');
+                logDebug('training-debug', 'Training validation failed: missing required fields');
+                return;
+            }
+
+            // Get dataset info for feature columns
+            const dataset = datasets.find(d => d.id === datasetId);
+            if (!dataset) {
+                showAlert(statusDiv, 'Selected dataset not found', 'error');
+                logDebug('training-debug', `Dataset not found: ${datasetId}`);
+                return;
+            }
+
+            const featureColumns = dataset.columns.filter(col => col !== targetColumn);
+            
+            if (featureColumns.length === 0) {
+                showAlert(statusDiv, 'No feature columns available (all columns selected as target)', 'error');
+                logDebug('training-debug', 'No feature columns available');
+                return;
+            }
+
+            const trainingRequest = {
+                dataset_id: datasetId,
+                model_name: modelName,
+                algorithm: algorithm,
+                model_type: modelType,
+                target_column: targetColumn,
+                feature_columns: featureColumns,
+                test_size: 0.2
+            };
+
+            try {
+                trainBtn.disabled = true;
+                trainBtn.textContent = 'Starting Training...';
+                
+                logDebug('training-debug', `Training request: ${JSON.stringify(trainingRequest, null, 2)}`);
+                
+                showAlert(statusDiv, 'Starting model training...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/training/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(trainingRequest)
+                });
+
+                logDebug('training-debug', `Training response status: ${response.status}`);
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showAlert(statusDiv, `Training started successfully! Job ID: ${result.job_id}`, 'success');
+                    
+                    logDebug('training-debug', `Training started: ${JSON.stringify(result)}`);
+                    
+                    // Reset form
+                    document.getElementById('model-name').value = '';
+                    
+                    // Reload data
+                    loadData();
+                } else {
+                    const errorText = await response.text();
+                    showAlert(statusDiv, `Training failed: ${errorText}`, 'error');
+                    logDebug('training-debug', `Training failed: ${response.status} - ${errorText}`);
+                }
+            } catch (error) {
+                showAlert(statusDiv, `Training failed: ${error.message}`, 'error');
+                logDebug('training-debug', `Training error: ${error.message}`);
+            } finally {
+                trainBtn.disabled = false;
+                trainBtn.textContent = 'Start Training';
+            }
+        }
+
+        async function makePrediction() {
+            const modelId = document.getElementById('select-model').value;
+            const resultDiv = document.getElementById('prediction-result');
+            
+            if (!modelId) {
+                showAlert(resultDiv, 'Please select a model', 'error');
+                return;
+            }
+
+            const model = models.find(m => m.id === modelId);
+            if (!model) {
+                showAlert(resultDiv, 'Selected model not found', 'error');
+                return;
+            }
+
+            const data = {};
+            
+            // Collect input values
+            for (const column of model.feature_columns) {
+                const input = document.getElementById(`input-${column}`);
+                if (!input || input.value === '') {
+                    showAlert(resultDiv, `Please enter a value for ${column}`, 'error');
+                    return;
+                }
+                data[column] = parseFloat(input.value);
+            }
+
+            try {
+                showAlert(resultDiv, 'Making prediction...', 'info');
+                
+                const response = await fetch(`${API_BASE}/api/models/${modelId}/predict`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ model_id: modelId, data: data })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    const predictionText = model.model_type === 'classification' ?
+                        `Prediction: ${result.prediction}${result.confidence ? ` (Confidence: ${(result.confidence * 100).toFixed(1)}%)` : ''}` :
+                        `Predicted Value: ${parseFloat(result.prediction).toFixed(2)}`;
+
+                    resultDiv.innerHTML = `
+                        <div class="alert success">
+                            <h3>🎯 Prediction Result</h3>
+                            <p><strong>${predictionText}</strong></p>
+                            <p style="font-size: 0.9em;">Model: ${result.model_used}</p>
+                        </div>
+                    `;
+                } else {
+                    const errorText = await response.text();
+                    showAlert(resultDiv, `Prediction failed: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                showAlert(resultDiv, `Prediction failed: ${error.message}`, 'error');
+            }
+        }
+
+        function updateJobsList() {
+            const list = document.getElementById('job-list');
+            const loading = document.getElementById('jobs-loading');
+            
+            loading.style.display = 'none';
+            
+            if (jobs.length === 0) {
+                list.innerHTML = '<p>No training jobs yet. Start training a model to see jobs here.</p>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            jobs.slice().reverse().forEach(job => {
+                const div = document.createElement('div');
+                div.style.cssText = 'border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; background: #f8f9fa;';
+                
+                const progressBar = job.status === 'training' ? 
+                    `<div class="progress-bar">
+                        <div class="progress-fill" style="width: ${job.progress * 100}%"></div>
+                    </div>
+                    <p style="font-size: 12px; margin: 5px 0;">Progress: ${(job.progress * 100).toFixed(1)}%</p>` : '';
+                
+                const metricsDisplay = job.metrics ? 
+                    `<div style="margin-top: 10px; font-size: 13px; background: white; padding: 8px; border-radius: 4px;">
+                        <strong>Metrics:</strong> ${Object.entries(job.metrics).map(([key, value]) => 
+                            `${key}: ${typeof value === 'number' ? value.toFixed(3) : value}`
+                        ).join(', ')}
+                    </div>` : '';
+
+                div.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div>
+                            <strong>${job.model_name}</strong>
+                            <span class="status ${job.status}">${job.status}</span>
+                        </div>
+                        <div style="text-align: right; font-size: 13px; color: #666;">
+                            ${job.algorithm} | ${job.model_type}
+                        </div>
+                    </div>
+                    ${progressBar}
+                    ${metricsDisplay}
+                    ${job.error_message ? `<div style="color: red; font-size: 12px; margin-top: 5px;">Error: ${job.error_message}</div>` : ''}
+                `;
+                
+                list.appendChild(div);
+            });
+        }
+
+        function updateModelsList() {
+            const list = document.getElementById('model-list');
+            const loading = document.getElementById('models-loading');
+            
+            loading.style.display = 'none';
+            
+            if (models.length === 0) {
+                list.innerHTML = '<p>No trained models yet. Complete a training job to see models here.</p>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            models.forEach(model => {
+                const div = document.createElement('div');
+                div.style.cssText = 'border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; background: #f8f9fa;';
+                
+                const mainMetric = model.model_type === 'classification' ? 
+                    `Accuracy: ${(model.metrics.accuracy * 100).toFixed(1)}%` :
+                    `RMSE: ${model.metrics.rmse.toFixed(3)}`;
+
+                div.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>${model.name}</strong>
+                            <div style="font-size: 13px; color: #666; margin: 5px 0;">
+                                ${model.algorithm} | ${model.model_type}
+                            </div>
+                            <div style="font-size: 13px; color: #667eea; font-weight: bold;">
+                                ${mainMetric}
+                            </div>
+                            <div style="font-size: 12px; color: #888; margin-top: 5px;">
+                                Features: ${model.feature_columns.length}, Target: ${model.target_column}
+                            </div>
+                        </div>
+                        <button class="btn" onclick="deleteModel('${model.id}')" style="background: #dc3545;">Delete</button>
+                    </div>
+                `;
+                
+                list.appendChild(div);
+            });
+        }
+
+        async function deleteModel(modelId) {
+            if (!confirm('Are you sure you want to delete this model?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/models/${modelId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showAlert('upload-status', 'Model deleted successfully', 'success');
+                    loadData();
+                } else {
+                    showAlert('upload-status', 'Failed to delete model', 'error');
+                }
+            } catch (error) {
+                showAlert('upload-status', `Failed to delete model: ${error.message}`, 'error');
+            }
+        }
+
+        function showAlert(container, message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert ${type}`;
+            alertDiv.innerHTML = message;
+            
+            if (typeof container === 'string') {
+                container = document.getElementById(container);
+            }
+            
+            container.innerHTML = '';
+            container.appendChild(alertDiv);
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    alertDiv.style.opacity = '0';
+                    setTimeout(() => alertDiv.remove(), 300);
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
